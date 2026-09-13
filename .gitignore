@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+auth.json
+rules.json
+*.tmp
+*.log
+deploy/.env

@@ -1,0 +1,6 @@
+[project]
+name = "yt-guard"
+version = "0.1.0"
+description = "Pause YouTube videos on the TV that match blocked keywords"
+requires-python = ">=3.11"
+dependencies = ["pyytlounge==3.4.0", "aiohttp"]

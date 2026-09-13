@@ -1,0 +1,98 @@
+# yt-guard on a Kubernetes node on the same LAN as the TV. No registry needed: stock python image,
+# script and settings come from ConfigMaps created by deploy/deploy.sh. Auth lives in /tmp and is
+# re-created by pairing over the LAN. Rules persist on a 1Mi local-path volume.
+# UI: http://<node-ip>:30102 (LAN, no login).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: yt-guard
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: yt-guard-rules
+  namespace: yt-guard
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources:
+    requests: {storage: 1Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: yt-guard
+  namespace: yt-guard
+spec:
+  type: NodePort
+  selector: {app: yt-guard}
+  ports:
+    - {name: http, port: 80, targetPort: 8080, nodePort: 30102}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: yt-guard
+  namespace: yt-guard
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate # two guards at once would double-press Back
+  selector:
+    matchLabels: {app: yt-guard}
+  template:
+    metadata:
+      labels: {app: yt-guard}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      initContainers:
+        - name: deps
+          image: python:3.13.13-alpine
+          # pip unpacks into TMPDIR; /tmp is an 8 MiB tmpfs, so unpack on the deps volume and clean up.
+          command: ["sh", "-c", "mkdir -p /deps/.tmp && TMPDIR=/deps/.tmp pip install --no-cache-dir --disable-pip-version-check --target=/deps pyytlounge==3.4.0 aiohttp==3.14.3 && rm -rf /deps/.tmp"]
+          env: [{name: HOME, value: /tmp}]
+          resources:
+            requests: {cpu: 50m, memory: 96Mi}
+            limits: {memory: 192Mi} # pip, only while the pod starts
+          securityContext: &hardened
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          volumeMounts:
+            - {name: deps, mountPath: /deps}
+            - {name: tmp, mountPath: /tmp}
+      containers:
+        - name: yt-guard
+          image: python:3.13.13-alpine
+          command: ["python", "/app/yt_guard.py"]
+          envFrom: [{configMapRef: {name: yt-guard-env}}]
+          env:
+            - {name: PYTHONPATH, value: /deps}
+            - {name: PYTHONUNBUFFERED, value: "1"}
+            - {name: AUTH_FILE, value: /tmp/auth.json}
+            - {name: RULES_FILE, value: /data/rules.json}
+          ports: [{name: http, containerPort: 8080}]
+          readinessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 30
+          resources:
+            requests: {cpu: 20m, memory: 64Mi} # measured 27 MiB in cluster, 2026-09-13
+            limits: {memory: 64Mi}
+          securityContext: *hardened
+          volumeMounts:
+            - {name: app, mountPath: /app}
+            - {name: deps, mountPath: /deps}
+            - {name: tmp, mountPath: /tmp}
+            - {name: rules, mountPath: /data}
+      volumes:
+        - {name: rules, persistentVolumeClaim: {claimName: yt-guard-rules}}
+        - {name: app, configMap: {name: yt-guard-script}}
+        - {name: deps, emptyDir: {sizeLimit: 64Mi}} # 9.9 MiB installed, more while unpacking
+        - {name: tmp, emptyDir: {medium: Memory, sizeLimit: 8Mi}}

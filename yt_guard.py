@@ -11,12 +11,14 @@ Connects to the TV's YouTube app over the Lounge API (the same link phones use t
 import asyncio
 import collections
 import html
+import ipaddress
 import json
 import logging
 import os
 import re
 import sys
 import time
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import aiohttp
@@ -32,6 +34,8 @@ SEED_KEYWORDS = os.environ.get("KEYWORDS", "minecraft,roblox,fortnite")
 DEVICE_NAME = os.environ.get("DEVICE_NAME", "YT Guard")
 TV_IP = os.environ.get("TV_IP", "")
 UI_PORT = int(os.environ.get("UI_PORT", "8080"))
+DISCOVERY_CIDR = os.environ.get("DISCOVERY_CIDR", "")
+DISCOVERY_INTERVAL = max(0.0, float(os.environ.get("DISCOVERY_INTERVAL", "60")))
 ACTION_GAP = 3.0  # seconds between commands; a burst of commands can trigger the TV's disconnect prompt
 KINDS = ("keywords", "channels", "videos")
 
@@ -139,9 +143,9 @@ async def video_info(session: aiohttp.ClientSession, video_id: str) -> dict:
     return info
 
 
-async def close_youtube(session: aiohttp.ClientSession, video_id: str, why: str):
+async def close_youtube(session: aiohttp.ClientSession, tv_ip: str, video_id: str, why: str):
     """Stop the YouTube app through the TV's DIAL app launcher (independent of the Lounge link)."""
-    url = f"http://{TV_IP}:8080/ws/app/YouTube/run"
+    url = f"http://{tv_ip}:8080/ws/app/YouTube/run"
     try:
         async with session.delete(url, timeout=aiohttp.ClientTimeout(total=5)) as r:
             log.info("close app %s (%s) -> HTTP %s", video_id, why, r.status)
@@ -150,11 +154,12 @@ async def close_youtube(session: aiohttp.ClientSession, video_id: str, why: str)
 
 
 class Guard(EventListener):
-    def __init__(self, session: aiohttp.ClientSession, rules: Rules):
+    def __init__(self, session: aiohttp.ClientSession, rules: Rules, tv_ip: str = TV_IP):
         super().__init__()
         self.api: YtLoungeApi | None = None
         self.session = session
         self.rules = rules
+        self.tv_ip = tv_ip
         self.video_id: str | None = None
         self.info: dict[str, dict] = {}  # video_id -> title/channel/handle (rules re-evaluated every time)
         self.recent: collections.deque = collections.deque(maxlen=30)
@@ -186,7 +191,7 @@ class Guard(EventListener):
                     ok = await self.api.send_dpad_command(DpadCommand.BACK)
                     log.info("back %s (%s) sent=%s", self.video_id, why, ok)
                 else:
-                    await close_youtube(self.session, self.video_id, why)
+                    await close_youtube(self.session, self.tv_ip, self.video_id, why)
 
     async def now_playing_changed(self, event):
         log.debug("now_playing %s %s", event.video_id, event.state.name)
@@ -197,6 +202,72 @@ class Guard(EventListener):
     async def playback_state_changed(self, event):
         log.debug("playback_state %s", event.state.name)
         await self.enforce(event.state)
+
+
+def is_samsung_dial_receiver(description: str) -> bool:
+    """Return whether a UPnP device description identifies a Samsung DIAL TV."""
+    try:
+        root = ET.fromstring(description)
+    except ET.ParseError:
+        return False
+
+    values = {}
+    for element in root.iter():
+        name = element.tag.rsplit("}", 1)[-1]
+        if name in ("manufacturer", "deviceType") and element.text:
+            values[name] = element.text.strip().casefold()
+    return (
+        values.get("manufacturer") == "samsung electronics"
+        and values.get("deviceType") == "urn:dial-multiscreen-org:device:dialreceiver:1"
+    )
+
+
+async def discover_tv_ip(
+    session: aiohttp.ClientSession,
+    current_ip: str,
+    cidr: str | None = None,
+) -> str | None:
+    """Find the single Samsung DIAL receiver on a bounded IPv4 network."""
+    network_text = (DISCOVERY_CIDR if cidr is None else cidr) or f"{current_ip}/24"
+    try:
+        network = ipaddress.ip_network(network_text, strict=False)
+    except ValueError:
+        log.warning("cannot discover TV from invalid network %r", network_text)
+        return None
+    if network.version != 4 or network.num_addresses > 256:
+        log.warning("refusing TV discovery outside a single IPv4 /24: %s", network)
+        return None
+
+    timeout = aiohttp.ClientTimeout(total=0.75, connect=0.35)
+    limit = asyncio.Semaphore(64)
+
+    async def probe(ip: ipaddress.IPv4Address) -> str | None:
+        url = f"http://{ip}:7678/nservice/"
+        try:
+            async with limit:
+                async with session.get(url, timeout=timeout) as response:
+                    if response.status != 200:
+                        return None
+                    description = await response.text()
+        except (aiohttp.ClientError, asyncio.TimeoutError):
+            return None
+
+        if not is_samsung_dial_receiver(description):
+            return None
+        try:
+            screen = await asyncio.wait_for(get_screen_id_from_dial(url), timeout=2)
+        except Exception:
+            return None
+        return str(ip) if screen and screen.screen_id else None
+
+    found = sorted({ip for ip in await asyncio.gather(*(probe(ip) for ip in network.hosts())) if ip})
+    if len(found) == 1:
+        return found[0]
+    if found:
+        log.warning("TV discovery ambiguous; Samsung DIAL receivers: %s", ", ".join(found))
+    else:
+        log.info("TV discovery found no Samsung DIAL receiver on %s", network)
+    return None
 
 
 async def pair_api(api: YtLoungeApi, tv_ip: str) -> bool:
@@ -215,17 +286,46 @@ async def pair(tv_ip: str):
     print(f"Paired. Saved {AUTH}")
 
 
+async def pair_with_discovery(
+    api: YtLoungeApi,
+    session: aiohttp.ClientSession,
+    tv_ip: str,
+    last_discovery: float,
+) -> tuple[bool, str, float]:
+    """Pair at the known address, discovering a DHCP replacement when needed."""
+    paired = False
+    try:
+        paired = await pair_api(api, tv_ip)
+    except Exception as e:
+        log.info("TV at %s unavailable: %s", tv_ip, e)
+
+    now = time.monotonic()
+    if not paired and now - last_discovery >= DISCOVERY_INTERVAL:
+        last_discovery = now
+        discovered = await discover_tv_ip(session, tv_ip)
+        if discovered:
+            if discovered != tv_ip:
+                log.info("TV address changed: %s -> %s", tv_ip, discovered)
+                tv_ip = discovered
+            paired = await pair_api(api, tv_ip)
+    return paired, tv_ip, last_discovery
+
+
 async def guard_loop(api: YtLoungeApi, guard: Guard):
     delay = 5
+    last_discovery = -DISCOVERY_INTERVAL
     while True:
         try:
             if not api.connected():
                 guard.connected_since = None
                 if not api.linked() or not await api.connect():
-                    # Token expired, or someone unlinked us on the TV: re-pair over the LAN.
-                    log.info("re-pairing with TV at %s", TV_IP)
-                    if not await pair_api(api, TV_IP) or not await api.connect():
-                        raise ConnectionError("TV not reachable (off, or YouTube closed)")
+                    # Token expired, someone unlinked us, or DHCP moved the TV.
+                    log.info("re-pairing with TV at %s", guard.tv_ip)
+                    paired, guard.tv_ip, last_discovery = await pair_with_discovery(
+                        api, guard.session, guard.tv_ip, last_discovery
+                    )
+                    if not paired or not await api.connect():
+                        raise ConnectionError("TV not reachable (off, YouTube closed, or discovery pending)")
                 log.info("connected to %s", api.screen_name)
                 guard.connected_since = time.time()
                 await api.get_now_playing()
@@ -316,7 +416,7 @@ def render(guard: Guard) -> str:
                  f"<div class=muted style='margin-top:6px'>Change: {quick}{custom}</div></div>")
     else:
         pause = f"<div class=pause><b>Pause blocking</b> for {quick}{custom}</div>"
-    return (PAGE.replace("{tv}", esc(TV_IP)).replace("{status}", status).replace("{pause}", pause)
+    return (PAGE.replace("{tv}", esc(guard.tv_ip)).replace("{status}", status).replace("{pause}", pause)
             .replace("{sections}", "".join(sections))
             .replace("{recent}", "".join(rows) or "<tr><td class=muted>nothing yet</td></tr>"))
 
@@ -358,7 +458,7 @@ async def run():
     rules = Rules(RULES_FILE)
     log.info("rules: %s", json.dumps(rules.data))
     async with aiohttp.ClientSession() as session:
-        guard = Guard(session, rules)
+        guard = Guard(session, rules, TV_IP)
         runner = web.AppRunner(make_app(guard), access_log=None)
         await runner.setup()
         await web.TCPSite(runner, "0.0.0.0", UI_PORT).start()

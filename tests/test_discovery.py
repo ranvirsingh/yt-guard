@@ -47,6 +47,12 @@ class FakeSession:
 
 
 class DiscoveryTests(unittest.IsolatedAsyncioTestCase):
+    async def test_known_tv_is_discovered_while_kids_disables_dial_pairing(self):
+        session = FakeSession({"192.0.2.2": SAMSUNG_DIAL_XML})
+        with patch.object(yt_guard, "get_screen_id_from_dial", AsyncMock(side_effect=ConnectionError("Kids closes pairing"))):
+            found = await yt_guard.discover_tv_ip(session, "192.0.2.99", "192.0.2.0/30", known_screen=True)
+        self.assertEqual("192.0.2.2", found)
+
     async def test_finds_the_only_samsung_dial_receiver(self):
         session = FakeSession({"192.0.2.2": SAMSUNG_DIAL_XML})
         screen = SimpleNamespace(screen_id="screen-id", screen_name="YouTube on TV")

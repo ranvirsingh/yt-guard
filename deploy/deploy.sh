@@ -17,7 +17,7 @@ kubectl -n yt-guard create configmap yt-guard-env \
   --from-literal=DISCOVERY_CIDR="${DISCOVERY_CIDR:-}" \
   --from-literal=DISCOVERY_INTERVAL="${DISCOVERY_INTERVAL:-60}" \
   --dry-run=client -o yaml | kubectl apply -f -
-kubectl -n yt-guard create configmap yt-guard-script --from-file=yt_guard.py \
+kubectl -n yt-guard create configmap yt-guard-script --from-file=yt_guard.py --from-file=ui.html \
   --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n yt-guard rollout restart deploy/yt-guard
 kubectl -n yt-guard rollout status deploy/yt-guard --timeout=180s

@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#eaf1f8">
+<title>YT Guard · A calmer screen</title>
+<style>
+:root{color-scheme:light;--ink:#172e45;--muted:#52677b;--blue:#185dcc;--green:#176349;--red:#a12d43;--amber:#855714;--glass:rgba(255,255,255,.57);--edge:rgba(255,255,255,.88);--shadow:0 12px 40px rgba(53,83,116,.09),inset 0 1px 0 rgba(255,255,255,.95);--radius:28px;--font:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;font:14px/1.5 var(--font);color:var(--ink);background:#eaf1f8;background-image:radial-gradient(ellipse at 5% 4%,#dae9ff 0,transparent 43%),radial-gradient(ellipse at 98% 22%,#d0eee7 0,transparent 39%),radial-gradient(ellipse at 38% 78%,#e7e2f8 0,transparent 45%);background-attachment:fixed}
+body:before{content:"";position:fixed;width:480px;height:480px;top:-220px;left:38%;background:rgba(255,255,255,.48);border-radius:50%;filter:blur(25px);pointer-events:none;z-index:-1}
+a{color:inherit;text-decoration:none}button,input{font:inherit}button{cursor:pointer}button,input,a{ -webkit-tap-highlight-color:transparent}
+button:focus-visible,input:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid #286ada;outline-offset:4px}
+.shell{max-width:1180px;margin:auto;padding:30px 36px 24px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:38px}
+.brand{display:flex;align-items:center;gap:12px;font-size:19px;font-weight:700;letter-spacing:-.6px}
+.brand-icon{display:grid;place-items:center;width:44px;height:44px;border-radius:15px;background:linear-gradient(140deg,rgba(255,255,255,.95),rgba(255,255,255,.25));border:1px solid var(--edge);box-shadow:var(--shadow);color:var(--blue)}
+.brand-icon svg{width:25px;height:25px}.brand small{font-size:12px;font-weight:500;letter-spacing:0;color:var(--muted);display:block}
+.top-right{display:flex;align-items:center;gap:14px}.lan-label{font-size:12px;color:var(--muted)}
+.badge{display:inline-flex;gap:8px;align-items:center;white-space:nowrap;border-radius:30px;padding:9px 14px;background:rgba(255,255,255,.6);border:1px solid var(--edge);box-shadow:0 3px 12px rgba(55,78,107,.04);font-size:12px;font-weight:600}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--amber);box-shadow:0 0 0 4px rgba(164,116,31,.08)}
+.badge.connected .dot{background:#27876a;box-shadow:0 0 0 4px rgba(39,135,106,.1)}
+.intro{margin-bottom:25px}.eyebrow{font-size:11px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:var(--muted)}
+h1{font-size:clamp(30px,4vw,43px);font-weight:650;letter-spacing:-1.7px;line-height:1.15;margin:9px 0 10px}h2{font-size:19px;font-weight:650;letter-spacing:-.5px;margin:0}h3{font-size:16px;font-weight:650;letter-spacing:-.3px;margin:0}.intro p{color:var(--muted);font-size:15px;margin:0}
+.glass{background:var(--glass);border:1px solid var(--edge);border-radius:var(--radius);box-shadow:var(--shadow);backdrop-filter:blur(24px) saturate(150%);-webkit-backdrop-filter:blur(24px) saturate(150%)}
+.countdown-banner[hidden]{display:none}
+.countdown-banner{position:sticky;top:12px;z-index:5;margin-bottom:18px;padding:20px 24px;border-radius:23px;background:rgba(255,247,227,.94);border-color:rgba(255,255,255,.96);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px 24px;box-shadow:0 10px 32px rgba(116,82,29,.12),inset 0 1px 0 #fff}.countdown-banner h2{color:var(--amber);font-size:17px;margin-bottom:4px}.countdown-video{margin:0 0 5px;font-size:13px;font-weight:600;overflow-wrap:anywhere}.countdown-copy{margin:0;font-size:12px;color:var(--muted)}.countdown-time{align-self:center;text-align:right;font-size:clamp(30px,4vw,42px);line-height:1;font-weight:650;color:var(--amber);font-variant-numeric:tabular-nums;letter-spacing:-1px}.countdown-time small{display:block;margin-top:6px;font-size:10px;font-weight:500;letter-spacing:0;color:var(--muted)}.countdown-banner progress{grid-column:1/-1;display:block;width:100%;height:7px;border:0;border-radius:10px;overflow:hidden;appearance:none;background:rgba(133,87,20,.12);accent-color:var(--amber)}.countdown-banner progress::-webkit-progress-bar{background:rgba(133,87,20,.12);border-radius:10px}.countdown-banner progress::-webkit-progress-value{background:linear-gradient(90deg,#b67d25,#855714);border-radius:10px}.countdown-banner progress::-moz-progress-bar{background:#855714;border-radius:10px}
+@media(max-width:720px){.countdown-banner{padding:17px 18px;gap:12px 14px;top:8px}.countdown-banner h2{font-size:15px}}
+@media(prefers-reduced-transparency:reduce){.countdown-banner{background:#fff7e3}}
+.overview{display:grid;grid-template-columns:1.16fr 1fr;gap:18px;margin-bottom:18px}
+.protection{padding:26px 28px 0;overflow:hidden;position:relative}.protection:after{content:"";position:absolute;width:220px;height:220px;border-radius:50%;right:-75px;top:-90px;background:radial-gradient(circle,rgba(174,220,211,.36),transparent 70%);pointer-events:none}
+.protection-top{display:flex;gap:18px;align-items:center;min-height:132px;padding-bottom:26px}
+.shield{flex-shrink:0;width:72px;height:78px;display:grid;place-items:center;color:var(--green);background:linear-gradient(150deg,rgba(255,255,255,.95),rgba(184,224,212,.5));border:1px solid rgba(255,255,255,.95);border-radius:24px;box-shadow:0 8px 18px rgba(29,102,80,.08),inset 0 0 16px rgba(255,255,255,.8)}
+.shield svg{width:38px;height:38px}.protection[data-mode="waiting"] .shield{color:var(--muted);background:linear-gradient(150deg,#fff,rgba(204,221,238,.45))}.protection[data-mode="paused"] .shield{color:var(--amber);background:linear-gradient(150deg,#fff,rgba(241,221,180,.5))}
+.status-title{font-size:25px;letter-spacing:-.8px;line-height:1.2;margin:0 0 8px;font-weight:650}.status-detail{color:var(--muted);font-size:13px;margin:0;max-width:350px}
+.stats{display:grid;grid-template-columns:1fr 1fr 1.25fr;border-top:1px solid rgba(110,137,159,.13);padding:17px 0 20px;gap:10px}.stat-value{font-size:21px;font-weight:650;letter-spacing:-.7px;line-height:1.3}.stat-label{font-size:11px;color:var(--muted);margin-top:3px}.stat-value.ip{font-size:14px;letter-spacing:0;padding-top:4px}
+.now-card{padding:25px 28px;display:flex;flex-direction:column}.card-label{display:flex;justify-content:space-between;align-items:center;gap:10px}.live-label{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px}.live-label:before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor}
+.now-content{display:flex;align-items:center;gap:18px;flex:1;min-height:130px;padding-top:16px}.now-icon{display:grid;place-items:center;flex-shrink:0;width:74px;height:74px;border-radius:22px;background:linear-gradient(135deg,rgba(255,255,255,.83),rgba(207,221,247,.6));border:1px solid var(--edge);color:#4f72a1;box-shadow:inset 0 1px 6px rgba(255,255,255,.7)}.now-icon svg{width:27px;height:27px}.now-title{font-size:17px;font-weight:600;line-height:1.4;letter-spacing:-.3px;margin:0 0 6px;overflow-wrap:anywhere}.now-channel{font-size:12px;color:var(--muted);margin:0}.now-state{font-size:11px;color:var(--muted);margin-top:8px}.now-title a:hover{text-decoration:underline}.now-empty{font-size:17px;font-weight:550;color:var(--muted);margin:0 0 5px}
+.pause-card{padding:19px 24px;margin-bottom:34px;display:flex;align-items:center;justify-content:space-between;gap:20px}.pause-copy{flex:1}.pause-copy strong{font-weight:650;font-size:14px}.pause-copy p{margin:3px 0 0;font-size:12px;color:var(--muted)}.pause-controls{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.pause-card.paused{background:rgba(255,249,231,.7)}
+.scope-card{padding:20px 24px;margin-bottom:18px;border-radius:23px}.kids-settings{display:flex;justify-content:space-between;align-items:center;gap:24px}.kids-copy{flex:1;min-width:0}.kids-toggle{display:flex;align-items:center;gap:11px;font-weight:650;font-size:14px;cursor:pointer}.kids-toggle input{width:18px;height:18px;flex-shrink:0;accent-color:var(--blue);padding:0;box-shadow:none}.scope-card p{font-size:12px;color:var(--muted);margin:7px 0 0 29px;max-width:730px}.scope-card .scope-state{font-size:11px;margin-top:5px}.kids-controls{display:flex;align-items:center;gap:16px;flex-shrink:0}.kids-grace{display:flex;flex-direction:column;gap:5px;font-size:11px;font-weight:600;color:var(--muted)}.grace-input{display:flex;gap:7px;align-items:center;font-weight:400}.kids-grace input{width:74px;padding:8px 10px;font-size:13px}.kids-controls button{align-self:flex-end;margin-bottom:1px}
+@media(max-width:720px){.kids-settings{flex-direction:column;align-items:stretch;gap:16px}.kids-controls{margin-left:29px;justify-content:space-between}}
+form{margin:0}button{color:var(--ink);background:rgba(255,255,255,.64);border:1px solid rgba(255,255,255,.98);border-radius:20px;padding:8px 13px;font-size:12px;font-weight:600;box-shadow:0 2px 8px rgba(56,83,107,.05),inset 0 1px 0 #fff;transition:background .15s,box-shadow .15s,transform .15s}button:hover{background:rgba(255,255,255,.95);box-shadow:0 4px 12px rgba(56,83,107,.1)}button:active{transform:scale(.97)}button.primary{color:white;background:linear-gradient(145deg,#3077e0,#175fc9);border-color:rgba(20,84,181,.4);box-shadow:0 3px 10px rgba(26,90,189,.18),inset 0 1px 0 rgba(255,255,255,.3)}button.primary:hover{background:#155abb}
+.custom-pause{display:flex;gap:5px;align-items:center;padding-left:7px;border-left:1px solid rgba(91,121,144,.18)}input{width:100%;min-width:0;background:rgba(255,255,255,.44);color:var(--ink);border:1px solid rgba(124,150,174,.22);border-radius:13px;padding:10px 12px;outline:none;font-size:13px;box-shadow:inset 0 1px 3px rgba(57,90,124,.025)}input::placeholder{color:#6b7f92}input:focus{background:rgba(255,255,255,.84);border-color:#3977cf}.custom-pause input{width:66px;border-radius:20px;padding:8px 9px;font-size:12px}
+.section-heading{display:flex;justify-content:space-between;align-items:baseline;gap:15px;margin:0 2px 15px}.section-heading p{font-size:12px;color:var(--muted);margin:4px 0 0}.section-note{font-size:11px;color:var(--muted)}
+.rules-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px;margin-bottom:34px}.rule-card{padding:22px 21px;border-radius:23px}.rule-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}.count{font-size:11px;background:rgba(216,229,243,.52);padding:2px 8px;border-radius:20px;color:var(--muted)}.rule-hint{font-size:12px;color:var(--muted);margin:0 0 17px;min-height:36px}.add-rule{display:flex;gap:7px;margin-bottom:16px}.add-rule input{flex:1}.add-rule button{border-radius:13px;padding:9px 13px;background:rgba(218,230,248,.65);color:#205eae;border-color:rgba(255,255,255,.95)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.chip{display:inline-flex;gap:5px;align-items:center;padding:4px 5px 4px 10px;background:rgba(240,246,255,.66);border:1px solid rgba(255,255,255,.85);border-radius:16px;font-size:11px;max-width:100%;overflow-wrap:anywhere}.chip button{display:grid;place-items:center;border:0;background:transparent;box-shadow:none;font-size:16px;line-height:1;width:26px;height:26px;padding:0;color:#65798b;flex-shrink:0}.chip button:hover{color:var(--red);background:rgba(255,255,255,.8)}.empty-rule{font-size:12px;color:var(--muted);padding:4px 0}.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.activity-card{overflow:hidden;border-radius:26px}.activity-head{padding:22px 25px 18px;display:flex;justify-content:space-between;align-items:center;gap:16px}.activity-head p{margin:4px 0 0;font-size:12px;color:var(--muted)}.activity-count{font-size:12px;color:var(--muted);white-space:nowrap}
+.activity-list{list-style:none;margin:0;padding:0 25px}.activity-item{display:grid;grid-template-columns:minmax(0,1fr) 145px 150px;gap:18px;align-items:start;padding:21px 0;border-top:1px solid rgba(103,132,158,.14)}.video-line{display:flex;gap:12px;align-items:flex-start}.video-symbol{display:grid;place-items:center;width:35px;height:35px;flex-shrink:0;background:rgba(212,228,246,.55);border:1px solid rgba(255,255,255,.8);border-radius:12px;color:#59779d;font-size:11px;margin-top:2px}.video-title{font-size:14px;font-weight:600;letter-spacing:-.15px;line-height:1.45;overflow-wrap:anywhere}.video-title:hover{color:var(--blue);text-decoration:underline}.video-channel{font-size:12px;color:var(--muted);margin-top:4px}.activity-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:11px}.activity-actions button{font-size:11px;padding:5px 10px;color:#315b86}
+.verdict{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:650;border-radius:20px;padding:4px 9px;background:rgba(207,234,222,.7);color:var(--green)}.verdict.blocked{background:rgba(246,214,222,.65);color:var(--red)}.verdict.paused{background:rgba(245,230,197,.7);color:var(--amber)}.reason{font-size:11px;line-height:1.5;color:var(--muted);margin-top:7px;overflow-wrap:anywhere}.activity-time{font-size:12px;text-align:right;color:var(--muted);line-height:1.6;font-variant-numeric:tabular-nums}.activity-time .date,.activity-time .clock{display:block}.activity-time .clock{font-size:11px}.empty-activity{padding:44px 20px 48px;text-align:center;border-top:1px solid rgba(103,132,158,.14)}.empty-activity strong{display:block;font-size:15px;font-weight:550;margin-bottom:5px}.empty-activity p{margin:0;color:var(--muted);font-size:12px}
+footer{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:20px 3px 0;font-size:11px;color:var(--muted)}#refresh-status[data-error="true"]{color:var(--red)}
+@media(min-width:1400px){.shell{padding-top:38px}.topbar{margin-bottom:44px}}
+@media(max-width:960px){.shell{padding:24px}.pause-card{align-items:flex-start;flex-direction:column;gap:13px}.rules-grid{gap:11px}.rule-card{padding:20px 16px}.overview{grid-template-columns:1fr 1fr}.protection{padding:22px 22px 0}.now-card{padding:22px}.shield{width:60px;height:68px;border-radius:21px}.status-title{font-size:23px}.activity-item{grid-template-columns:minmax(0,1fr) 120px 130px;gap:12px}}
+@media(max-width:720px){.shell{padding:20px 16px}.topbar{margin-bottom:28px}.lan-label{display:none}.brand{font-size:17px}.brand small{font-size:11px}.badge{padding:8px 10px;font-size:11px}.intro{margin-bottom:21px}h1{letter-spacing:-1.2px}.intro p{font-size:13px}.overview{grid-template-columns:1fr;gap:13px}.protection-top{min-height:104px;padding-bottom:22px}.stats{padding-top:14px;padding-bottom:17px}.now-card{padding:20px 22px}.now-content{min-height:102px;gap:15px}.now-icon{width:58px;height:58px;border-radius:18px}.now-title{font-size:15px}.pause-card{padding:19px 21px;border-radius:23px;margin-bottom:27px}.pause-controls{gap:6px}.custom-pause{padding-left:0;border:0}.rules-grid{grid-template-columns:1fr;margin-bottom:28px;gap:12px}.rule-card{padding:20px 21px}.rule-hint{min-height:0;margin-bottom:14px}.add-rule{margin-bottom:13px}.section-note{display:none}.activity-head{padding:20px 20px 16px}.activity-list{padding:0 20px}.activity-item{grid-template-columns:minmax(0,1fr) auto;gap:8px 12px;padding:18px 0}.activity-video{grid-column:1/-1}.activity-verdict{padding-left:47px}.activity-time{font-size:11px}.video-title{font-size:13px}.video-channel{font-size:11px}.activity-actions{margin-top:9px}.activity-count{font-size:11px}.section-heading h2,.activity-head h2{font-size:18px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+@media(prefers-reduced-transparency:reduce){.glass,.badge{background:#f5f8fc;backdrop-filter:none;-webkit-backdrop-filter:none}}
+@supports not (backdrop-filter:blur(1px)){.glass{background:rgba(250,252,255,.94)}}
+</style>
+</head>
+<body>
+<main class="shell">
+<header class="topbar">
+  <a href="/" class="brand" aria-label="YT Guard home"><span class="brand-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3 20 6v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z" stroke="currentColor" stroke-width="1.6"/><path d="m10 9 5 3-5 3V9Z" fill="currentColor"/></svg></span><span>YT Guard<small>A calmer screen</small></span></a>
+  <div class="top-right"><span class="lan-label">Your home network</span><span id="connection-badge" class="badge {connection_class}"><span class="dot" aria-hidden="true"></span><span id="connection-label">{connection_label}</span></span></div>
+</header>
+<div class="intro"><div class="eyebrow">Screen time, with peace of mind</div><h1>A little less noise.</h1><p>Keep the videos you want. Leave the ones you don’t.</p></div>
+<section id="kids-countdown" class="glass countdown-banner" aria-labelledby="countdown-heading" data-remaining="{countdown_exact}" data-total="{countdown_total}" data-retrying="{countdown_retrying}" {countdown_hidden}>
+  <div><h2 id="countdown-heading" role="status">This video is blocked</h2><p id="countdown-video" class="countdown-video">{countdown_title}</p><p id="countdown-copy" class="countdown-copy">Switch video or profile to keep YouTube open.</p><span id="countdown-reason" class="visually-hidden">{countdown_reason}</span></div>
+  <div class="countdown-time" role="timer" aria-live="off"><span id="countdown-seconds">{countdown_remaining}</span>s<small>until YouTube closes</small></div>
+  <progress id="countdown-progress" aria-label="Time remaining before YouTube closes" max="{countdown_total}" value="{countdown_exact}"></progress>
+</section>
+<div class="overview">
+  <section class="glass protection" id="protection-card" data-mode="{mode}" aria-labelledby="status-title">
+    <div class="protection-top"><div class="shield" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="m16 3 11 4v9c0 7-11 13-11 13S5 23 5 16V7l11-4Z" stroke="currentColor" stroke-width="1.6"/><path d="m11 16 3.5 3.5L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div role="status"><h2 class="status-title" id="status-title">{status_title}</h2><p class="status-detail" id="status-detail">{status_detail}</p></div></div>
+    <div class="stats"><div><div class="stat-value" id="rule-count">{rule_count}</div><div class="stat-label">Blocking rules</div></div><div><div class="stat-value" id="recent-count">{recent_count}</div><div class="stat-label">Recent videos</div></div><div><div class="stat-value ip" id="tv-address">{tv}</div><div class="stat-label">Your Samsung TV</div></div></div>
+  </section>
+  <section class="glass now-card" aria-labelledby="now-heading"><div class="card-label"><h3 id="now-heading">Now on your TV</h3><span class="live-label">Live</span></div><div id="now-playing" class="now-content">{now_playing}</div></section>
+</div>
+<section class="glass scope-card" aria-label="Apps included in blocking"><form method="post" action="/settings/kids" class="kids-settings"><div class="kids-copy"><label class="kids-toggle"><input type="checkbox" name="include_kids" value="1" id="include-kids" aria-describedby="kids-help" {kids_checked}><span>Include YouTube Kids</span></label><p id="kids-help">Kids uses the same video rules. A matched video closes YouTube after the grace time, giving you time to switch video or profile. Missing video data leaves the app open. Pausing blocking allows Kids too.</p><p class="scope-state" id="kids-setting-state">{kids_setting_state}</p></div><div class="kids-controls"><label class="kids-grace" for="kids-grace">Grace time<span class="grace-input"><input id="kids-grace" name="kids_grace_seconds" type="number" min="0" max="600" step="1" value="{kids_grace_seconds}" aria-describedby="kids-help" required><span>seconds</span></span></label><button aria-label="Save Kids settings">Save</button></div></form></section>
+<section id="pause-card" class="glass pause-card {pause_class}" aria-label="Pause blocking">{pause}</section>
+<section aria-labelledby="rules-heading"><div class="section-heading"><div><h2 id="rules-heading">Your boundaries</h2><p>Block by topic, creator, or a specific video.</p></div><span class="section-note">Changes apply immediately</span></div><div class="rules-grid">{sections}</div></section>
+<section class="glass activity-card" aria-labelledby="activity-heading"><div class="activity-head"><div><h2 id="activity-heading">Recently played</h2><p>What the guard has seen on your TV.</p></div><span class="activity-count" id="activity-count">{recent_count} videos</span></div><ol class="activity-list" id="recent-list">{recent}</ol></section>
+<footer><span>Made for your home · Recovery is automatic</span><span id="refresh-status">Live updates every 5 seconds</span><span id="local-zone">Times shown in your local timezone</span></footer>
+</main>
+<script>
+const dateFormat = new Intl.DateTimeFormat(undefined, {dateStyle:'medium'});
+const timeFormat = new Intl.DateTimeFormat(undefined, {timeStyle:'short'});
+const fullFormat = new Intl.DateTimeFormat(undefined, {dateStyle:'medium',timeStyle:'short'});
+function localizeTimes(root=document) {
+  root.querySelectorAll('time[data-t]').forEach(el => {
+    const date=new Date(Number(el.dataset.t)*1000);
+    el.dateTime=date.toISOString();
+    el.title=fullFormat.format(date);
+    if (el.querySelector('.date')) {
+      el.querySelector('.date').textContent=dateFormat.format(date);
+      el.querySelector('.clock').textContent=timeFormat.format(date);
+    } else el.textContent=fullFormat.format(date);
+  });
+}
+localizeTimes();
+document.getElementById('local-zone').textContent='Local time · '+Intl.DateTimeFormat().resolvedOptions().timeZone;
+let lastRecent='', lastNow='', lastPause='';
+let refreshing=false;
+let lastStatusSync=0;
+const countdownBanner=document.getElementById('kids-countdown');
+const countdownProgress=document.getElementById('countdown-progress');
+let countdownDeadline=countdownBanner.hidden?null:performance.now()+Number(countdownBanner.dataset.remaining)*1000;
+let countdownRetrying=countdownBanner.dataset.retrying==='true';
+function tickCountdown(){
+  if(countdownDeadline===null || countdownBanner.hidden)return;
+  const remaining=Math.max(0,(countdownDeadline-performance.now())/1000);
+  document.getElementById('countdown-seconds').textContent=Math.ceil(remaining);
+  countdownProgress.value=remaining;
+  countdownProgress.setAttribute('aria-valuetext',Math.ceil(remaining)+' seconds remaining');
+  document.getElementById('countdown-copy').textContent=remaining>0?'Switch video or profile to keep YouTube open.':countdownRetrying?'Close delayed. The guard is retrying automatically.':'Grace time has ended. Waiting for the guard to close YouTube.';
+}
+function updateCountdown(countdown,requestStarted){
+  if(!countdown){countdownBanner.hidden=true;countdownDeadline=null;return;}
+  countdownDeadline=requestStarted+countdown.remaining_seconds*1000;
+  countdownRetrying=countdown.retrying;
+  countdownProgress.max=Math.max(1,countdown.total_seconds);
+  document.getElementById('countdown-video').textContent=countdown.title;
+  document.getElementById('countdown-reason').textContent=countdown.reason;
+  countdownBanner.hidden=false;
+  tickCountdown();
+}
+tickCountdown();
+setInterval(tickCountdown,250);
+let kidsDirty=false;
+function kidsSettingChanged(){
+  kidsDirty=true;document.getElementById('kids-setting-state').textContent='Unsaved change · press Save to apply.';
+}
+document.getElementById('include-kids').addEventListener('change',kidsSettingChanged);
+document.getElementById('kids-grace').addEventListener('input',kidsSettingChanged);
+async function refresh() {
+  if (refreshing || document.hidden) return;
+  refreshing=true;
+  const notice=document.getElementById('refresh-status');
+  const requestStarted=performance.now();
+  try {
+    const response=await fetch('/api/status', {cache:'no-store',signal:AbortSignal.timeout(6000)});
+    if (!response.ok) throw new Error('Update failed');
+    const data=await response.json();
+    lastStatusSync=performance.now();
+    updateCountdown(data.kids_countdown,requestStarted);
+    document.getElementById('connection-badge').classList.toggle('connected',data.connected);
+    document.getElementById('connection-label').textContent=data.connection_label;
+    if (!kidsDirty) {
+      document.getElementById('include-kids').checked=data.include_kids;
+      document.getElementById('kids-grace').value=data.kids_grace_seconds;
+      document.getElementById('kids-setting-state').textContent=data.include_kids?'Kids video rules are on · '+data.kids_grace_seconds+' sec grace.':'Kids is excluded. Regular YouTube stays protected.';
+    }
+    document.getElementById('protection-card').dataset.mode=data.mode;
+    for (const [id,key] of [['status-title','status_title'],['status-detail','status_detail'],['rule-count','rule_count'],['recent-count','recent_count'],['tv-address','tv_ip']]) {
+      const el=document.getElementById(id);
+      if (el.textContent!==String(data[key])) el.textContent=data[key];
+    }
+    document.getElementById('activity-count').textContent=data.recent_count+' '+(data.recent_count===1?'video':'videos');
+    if (lastRecent!==data.recent_html) {
+      const list=document.getElementById('recent-list');
+      list.innerHTML=data.recent_html; localizeTimes(list); lastRecent=data.recent_html;
+    }
+    if (lastNow!==data.now_html) {
+      document.getElementById('now-playing').innerHTML=data.now_html; lastNow=data.now_html;
+    }
+    const pause=document.getElementById('pause-card');
+    if (lastPause!==data.pause_html && !pause.contains(document.activeElement)) {
+      pause.innerHTML=data.pause_html;localizeTimes(pause);lastPause=data.pause_html;
+      pause.classList.toggle('paused',data.paused);
+    }
+    notice.textContent='Updated '+timeFormat.format(new Date());notice.dataset.error='false';
+  } catch(error) {
+    countdownBanner.hidden=true;countdownDeadline=null;
+    notice.textContent='Live updates unavailable · reconnecting';notice.dataset.error='true';
+    document.getElementById('connection-badge').classList.remove('connected');
+    document.getElementById('connection-label').textContent='Status unavailable';
+    document.getElementById('protection-card').dataset.mode='waiting';
+    document.getElementById('status-title').textContent='Connection unavailable';
+    document.getElementById('status-detail').textContent='Cannot reach the guard. Retrying automatically.';
+  } finally { refreshing=false; }
+}
+setInterval(()=>{if(countdownDeadline!==null || performance.now()-lastStatusSync>=5000)refresh()},1000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh()});
+refresh();
+</script>
+</body>
+</html>

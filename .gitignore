@@ -2,6 +2,7 @@
 __pycache__/
 auth.json
 rules.json
+recent.json
 *.tmp
 *.log
 deploy/.env

@@ -1,6 +1,6 @@
 # yt-guard on a Kubernetes node on the same LAN as the TV. No registry needed: stock python image,
-# script and settings come from ConfigMaps created by deploy/deploy.sh. Auth lives in /tmp and is
-# re-created by pairing over the LAN. Rules persist on a 1Mi local-path volume.
+# script and settings come from ConfigMaps created by deploy/deploy.sh. Rules, history and
+# private pairing state persist on a 1Mi local-path volume.
 # UI: http://<node-ip>:30102 (LAN, no login).
 apiVersion: v1
 kind: Namespace
@@ -76,12 +76,18 @@ spec:
           env:
             - {name: PYTHONPATH, value: /deps}
             - {name: PYTHONUNBUFFERED, value: "1"}
-            - {name: AUTH_FILE, value: /tmp/auth.json}
+            - {name: AUTH_FILE, value: /data/auth.json}
             - {name: RULES_FILE, value: /data/rules.json}
           ports: [{name: http, containerPort: 8080}]
           readinessProbe:
             httpGet: {path: /healthz, port: http}
-            periodSeconds: 30
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /livez, port: http}
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 2
+            failureThreshold: 3
           resources:
             requests: {cpu: 20m, memory: 64Mi} # measured 27 MiB in cluster, 2026-09-13
             limits: {memory: 64Mi}
